@@ -13,7 +13,7 @@ Como bioquímica con formación en ciencia de datos, abordé el problema prioriz
 **1. Reducción de dimensionalidad (MCA)**
 Análisis de correspondencias múltiples sobre variables categóricas (género, ocupación, IMC, trastorno de sueño), con un proceso iterativo de reagrupación de categorías de baja frecuencia para mejorar la interpretabilidad. El modelo final con variables reducidas explica el 79% de la inercia total en dos dimensiones.
 
-![MCA con variables reducidas](images/mca_variables_reducidas.png)
+![MCA con variables reducidas](mca_variables_reducidas.png)
 
 *Los hombres con IMC normal se agrupan con ausencia de trastornos; las mujeres con sobrepeso se asocian a insomnio y apnea del sueño.*
 
@@ -25,14 +25,14 @@ Las asociaciones exploradas en el MCA se contrastaron con pruebas de independenc
 - **Regresión logística multinomial**, con chequeo previo de multicolinealidad (VIF) y exclusión de predictores redundantes.
 - **Random Forest**, evaluando la importancia relativa de cada variable mediante el aumento en tasa de error al permutarla.
 
-![Importancia de variables - Random Forest](images/random_forest_importancia.png)
+![Importancia de variables - Random Forest](random_forest_importancia.png)
 
 *La calidad y duración del sueño son, por amplio margen, los predictores más relevantes para clasificar el tipo de trastorno.*
 
 **4. Clustering y validación no supervisada**
 Comparación de métodos de clustering (`clValid`) y segmentación con PAM, contrastada contra la clasificación clínica real (validación externa). El biplot de PCA permite visualizar cómo se separan los clusters según las variables originales.
 
-![Biplot PCA con clusters](images/pca_biplot_clusters.png)
+![Biplot PCA con clusters](pca_biplot_clusters.png)
 
 *El Cluster 1 se asocia a mayor estrés y frecuencia cardíaca; el Cluster 2, a mejor calidad y duración del sueño.*
 
