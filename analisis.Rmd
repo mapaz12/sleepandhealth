@@ -1,0 +1,1020 @@
+---
+title: " Entrega final Materia Analisis Inteligente"
+author: "Maria de la Paz Martinez"
+date: "2026-04-25"
+output:
+  bookdown::pdf_document2:
+    toc: true
+    toc_depth: 2
+    latex_engine: xelatex
+    lof: false   
+    lot: false 
+---
+\vspace{1cm}
+
+
+**El conjunto de datos Sleep_health_and_lifestyle fue extraído de la plataforma Kaggle. Contiene 374 observaciones y 13 variables que registran información sobre hábitos diarios, salud general y calidad del sueño. A continuación, se presenta una descripción detallada de cada variable incluida**
+
+
+
+```{r echo=FALSE,warning=FALSE, message=FALSE}  
+
+library(tidyverse) 
+library(readr)
+library(FactoMineR)
+library(factoextra)
+library(dplyr)
+library(ggplot2)
+library(MVTests)
+library(psych)
+library(biotools)
+library(knitr)
+library(kableExtra)
+```
+
+
+# Descripción de variables del dataset{#sec-principal}
+
+La estructura del dataset detallada en el Anexo **Sección \@ref(sec:EstructuraStr)**
+
+
+
+```{r include=FALSE}
+
+
+Sleep_AnalisisInteligente <- readRDS("Sleep_AnalisisInteligente.rds")
+
+
+
+```
+
+
+
+- **Person ID**: Identificador único para cada individuo.
+- **Gender**: Género de la persona (Masculino/Femenino).
+- **Age**: Edad de la persona en años.
+- **Occupation**: Ocupación o profesión de la persona.
+- **Sleep Duration (hours)**: Cantidad de horas que la persona duerme por día.
+- **Quality of Sleep (scale: 1–10)**: Valoración subjetiva de la calidad del sueño, en una escala del 1 al 10.
+- **Physical Activity Level (minutes/day)**: Minutos diarios dedicados a actividad física.
+- **Stress Level (scale: 1–10)**: Valoración subjetiva del nivel de estrés experimentado, en una escala del 1 al 10.
+- **BMI Category**: Categoría de índice de masa corporal (por ejemplo: Bajo peso, Normal, Sobrepeso).
+- **Blood Pressure (systolic/diastolic)**: Medición de la presión arterial, 
+- **Heart Rate (bpm)**: Frecuencia cardíaca en reposo, en pulsaciones por minuto.
+- **Daily Steps**: Cantidad de pasos que la persona da por día.
+- **Sleep Disorder**: Presencia o ausencia de trastornos del sueño (Ninguno, Insomnio, Apnea del sueño).
+
+```{r echo=FALSE, results='hide'}
+head(Sleep_AnalisisInteligente,5)
+```
+
+
+
+# Reducción de dimensionalidad.Analisis de componentes múltiples.MCA{#sec-MCA}
+
+
+##  MCA con totalidad de variables cualitativas. Gender, Occupation, BMI_Category y Sleep_Disoreder
+
+
+```{r echo=FALSE}
+
+Sleep_cat <- Sleep_AnalisisInteligente[, c("Gender","Occupation","BMI_Category","Sleep_Disorder")]
+
+# MCA inicial con todas las cualitativas
+mca_result1 <- MCA(Sleep_cat, graph = FALSE)
+fviz_mca_var(mca_result1, repel = TRUE, col.var = "cos2", title= "Mapa Factorial de Categorias totales")
+
+
+
+```
+“Ver en Anexo **\@ref(anexo-contrib)**  las figuras de contribución de variables a cada dimensión y los eigenvalues( % de variabilidad explicada por dimensión)”
+
+
+```{r include=FALSE}
+fviz_contrib(mca_result1, choice = "var", axes = 1, top = 10)
+fviz_contrib(mca_result1, choice = "var", axes = 2, top = 10)
+eigen <- get_eigenvalue(mca_result1)
+head(eigen)
+```
+
+
+
+
+ **Interpretación inicial**
+ 
+Dim1 (≈19%): oposición principal entre sexo y trastornos de sueño, con mujeres asociadas a insomnio/apnea frente a hombres sin trastorno.
+Dim2 (≈12%): oposición secundaria entre IMC, diferenciando sujetos con peso normal frente a sobrepeso/obesidad. Esta dimensión refuerza la separación por género y añade variabilidad vinculada a ciertas ocupaciones, aunque de manera menos marcada. En un segundo paso se decidió realizar una revisión de la frecuencia de categorías para su posterior agrupación, con el fin de mejorar la interpretabilidad gráfica.
+ 
+ 
+## MCA con categorías agrupadas{#sec-MCAagrupado} 
+
+
+
+
+
+```{r include=FALSE}
+table(Sleep_AnalisisInteligente$Occupation)
+table(Sleep_AnalisisInteligente$BMI_Category)
+```
+En **Ocupación**, la elevada cantidad de categorías con baja frecuencia dificulta la interpretación, por lo que se reagruparon en cuatro grupos conceptualmente coherentes. En **IMC**, la categoría *Obesidad* mostró una frecuencia muy baja , en contraste con *Normal* y *Overweight* , se fusionó con Overweight, quedando dos categorías finales: *Normal* y *Overweight*.Ver tablas en **Anexo \@ref(anexo-tablas)**
+
+
+
+```{r echo=FALSE}
+# ============================
+#   agrupación de categorías
+# ============================
+df_reagrupado <- Sleep_AnalisisInteligente %>%
+  mutate(
+    # Agrupación de ocupaciones
+    Occupation = case_when(
+      Occupation %in% c("Sales Representative", "Salesperson") ~ "Ventas",
+      Occupation %in% c("Doctor", "Nurse") ~ "Profesiones medicas",
+      Occupation %in% c("Engineer", "Scientist", "Software Engineer") ~ "Profesiones tecnicas",
+      Occupation %in% c("Accountant", "Lawyer", "Manager") ~ "Administrativos",
+      TRUE ~ Occupation
+    ),
+    # Agrupación de IMC
+    BMI_Category = case_when(
+      BMI_Category == "Normal" ~ "Normal",
+      BMI_Category %in% c("Overweight", "Obese") ~ "Overweight"
+    )
+  )
+
+
+```
+
+
+
+Tras la agrupación de ocupaciones, la Dimensión 1 (30%) refleja principalmente la oposición entre mujeres con trastornos de sueño y ocupaciones administrativas/ventas frente a hombres con imc normal y ocupaciones técnicas/médicas. La Dimensión 2 (21%) refuerza la separación por género y aporta variabilidad adicional en las ocupaciones. En conjunto, ambas dimensiones explican el 52% de la inercia total.
+Las Figuras del **Anexo  \@ref(anexo-contrib2)** muestran la contribución de las variables a cada dimensión y los eigenvalues (porcentaje de variabilidad explicada). Con el objetivo de mejorar la representatividad del modelo, se decidió posteriormente reducir  el número de variables, evaluando si esta estrategia permitía obtener un mayor porcentaje de variabilidad explicada y una interpretación gráfica más clara.
+
+
+```{r echo=FALSE}
+# ============================
+#  MCA con categorias agrupadas
+# ============================
+Sleep_cat <- df_reagrupado[, c("Gender","Occupation","BMI_Category","Sleep_Disorder")]
+mca_result2 <- MCA(Sleep_cat, graph = FALSE)
+
+fviz_mca_var(mca_result2, repel = TRUE, col.var = "cos2",title=" Mapa factorial de categorias agrupadas")
+
+
+```
+
+```{r include=FALSE}
+eigen <- get_eigenvalue(mca_result2)
+head(eigen)
+fviz_contrib(mca_result2, choice = "var", axes = 1, top = 10)
+fviz_contrib(mca_result2, choice = "var", axes = 2, top = 10)
+```
+
+
+
+
+
+## MCA con reducción de variables. Gender, BMI_category y Sleep_Disorder
+
+```{r echo=FALSE}
+# ============================
+#  MCA con reduccion de variables 
+# ============================
+Sleep_cat <- df_reagrupado[, c("Gender","BMI_Category","Sleep_Disorder")]
+mca_result <- MCA(Sleep_cat, graph = FALSE)
+
+fviz_mca_var(mca_result, repel = TRUE, col.var = "cos2", title=" Mapa factorial con variables reducidas")
+
+
+```
+Al reducir el análisis a las variables género, IMC y trastorno de sueño, la Dimensión 1 explica el 50% de la variabilidad y la Dimensión 2 el 29%. En conjunto, ambas dimensiones concentran el 79% de la inercia total, lo que permite una interpretación robusta.
+En la Dimensión 1 se observa una asociación entre hombres con IMC normal y ausencia de trastornos, frente a mujeres con IMC elevado vinculadas a insomnio, apnea y sobrepeso.
+En los gráficos de contribución se aprecia que esta dimensión está definida principalmente por la categoría Sobrepeso, acompañada en menor medida por Apnea del sueño, Normal y ausencia de trastornos.
+En la Dimensión 2, lo más notorio es la separación entre Insomnio y Apnea, ya que son las únicas categorías que superan el valor esperado y, por tanto, las principales responsables de la construcción de este eje.” El género no presenta una contribución significativa, pese a que en el plano factorial las categorías aparecen opuestas por su carácter dicotómico.”
+
+
+```{r contrib-eigen,echo=FALSE}
+# Gráfico Dim1
+p1 <- fviz_contrib(mca_result, choice = "var", axes = 1, top = 10) +
+  ggtitle("Contribucion a Dimension 1")
+
+# Gráfico Dim2
+p2 <- fviz_contrib(mca_result, choice = "var", axes = 2, top = 10) +
+  ggtitle("Contribucion a Dimension 2")
+
+
+# Screeplot
+p3 <- fviz_screeplot(mca_result, addlabels = TRUE, ylim = c(0, 80)) +
+  ggtitle("Scree plot: % de variabilidad por dimensión")
+
+gridExtra::grid.arrange(p1, p2, p3, ncol=2)
+
+```
+
+
+
+
+
+
+**Matriz de Burt**
+
+```{r echo=FALSE}
+# ============================
+#  Matriz disyuntiva y Burt
+# ============================
+df_reagrupado$Gender <- factor(df_reagrupado$Gender)
+df_reagrupado$BMI_Category <- factor(df_reagrupado$BMI_Category)
+df_reagrupado$Sleep_Disorder <- factor(df_reagrupado$Sleep_Disorder)
+
+Sleep_cat <- df_reagrupado[, c("Gender","BMI_Category","Sleep_Disorder")]
+
+
+matriz_disyuntiva <- tab.disjonctif(Sleep_cat)
+
+# Matriz de Burt
+matriz_burt <- t(matriz_disyuntiva) %*% as.matrix(matriz_disyuntiva)
+
+
+kable(matriz_burt, 
+      format = "latex", 
+      booktabs = TRUE)
+
+
+```
+
+La matriz de Burt constituye la base del análisis de correspondencias múltiple, el
+ examen de estas frecuencias  permite confirmar las mismas asociaciones observadas en los gráficos.Se observa que la mayor parte de los individuos 
+con IMC normal no presentan trastornos del sueño, mientras que el sobrepeso se asocia con mayor presencia de apnea. Asimismo, la distribución por género muestra que los hombres predominan en la categoría Normal sin trastnornos  mientras que las mujeres se concentran más en Sobrepeso con trastornos del sueno
+ 
+La reducción de variables cualitativas permitió aumentar la inercia explicada y 
+obtener interpretaciones más claras. En una segunda etapa, estas asociaciones 
+serán reforzadas mediante pruebas estadísticas de independencia, 
+aportando validación formal a los hallazgos exploratorios.
+
+# Comparación de grupos
+## Prueba de Independencia entre trastorno del sueño y BMI
+
+“Para verificar formalmente la asociación explorada entre el índice de masa corporal (BMI_Category) y la presencia de trastornos del sueño (Sleep_Disorder), se aplicó una prueba de independencia Chi‑cuadrado. Esta prueba permite evaluar si la distribución de los trastornos del sueño difiere significativamente según la categoría de IMC, contrastando la hipótesis de independencia frente a la hipótesis de asociación.”
+Para evitar posibles inconsistencias en la prueba Chi‑cuadrado derivadas de categorías con baja frecuencia, se utilizó el dataframe reagrupado(al menos el 80% de las celdas de la tabla deben tener frecuencias esperadas ≥ 5 y Ninguna celda debe tener frecuencia esperada < 1.) 
+
+$$H_0: P(\text{SleepDisorder} \mid \text{BMICategory}) = P(\text{SleepDisorder})$$
+
+$$H_1: P(\text{SleepDisorder} \mid \text{BMICategory}) \neq P(\text{SleepDisorder})$$
+
+
+```{r echo=FALSE}
+# Tabla IMC x Trastorno del Sueño en el df reagrupado
+tab_imc <- table(df_reagrupado$BMI_Category, df_reagrupado$Sleep_Disorder)
+
+chi<-chisq.test(tab_imc)
+cat("El test de independencia Chi‑cuadrado arrojó un valor p =", 
+    format(chi$p.value, scientific = TRUE, digits = 3), "\n")
+
+
+
+```
+ El test de independencia Chi‑cuadrado arrojó un valor p <<0.05, lo que permite rechazar la hipótesis nula de independencia  y concluir que la distribución de los trastornos de sueño difiere significativamente según el IMC.”
+
+```{r echo=FALSE, results='asis'}
+
+
+chi <- chisq.test(tab_imc)
+residuos_ajustados <- chi$stdres
+
+kable(residuos_ajustados, format="latex", booktabs=TRUE, digits=2,
+      caption="Residuos ajustados (estandarizados) del test Chi-cuadrado") %>%
+  kable_styling(latex_options="hold_position")
+
+```
+
+El análisis de residuos ajustados del Chi‑cuadrado confirma que la asociación entre IMC y trastorno del sueño es estadísticamente significativa. En particular, los individuos con IMC normal se concentran en la categoría ‘sin trastorno’, mientras que los individuos con sobrepeso presentan frecuencias superiores a las esperadas en insomnio y apnea. Estos resultados refuerzan la interpretación del MCA, donde el eje principal reflejaba la oposición entre Normal–None y Sobrepeso–Apnea.”
+
+
+## Prueba de independencia entre trastono de sueño y género
+
+EN el análisis factorial inicial, la variable género mostraba cierta contribución a la variabilidad, asociándose con la presencia de insomnio y apnea en mujeres frente a hombres sin trastorno. Tras la reducción y reagrupación de categorías, su relevancia disminuyó. No obstante, dado que en la primera fase sí aportaba variabilidad, se decidió evaluar formalmente la independencia entre género y trastorno del sueño mediante Chi‑cuadrado, con el fin de contrastar la evidencia exploratoria con un test estadístico.”
+
+
+
+$$H_0: P(\text{Sleep\_Disorder} \mid \text{Gender}) = P(\text{SleepDisorder})$$
+
+
+$$H_1: P(\text{SleepDisorder} \mid \text{Gender}) \neq P(\text{SleepDisorder})$$
+
+
+```{r echo=FALSE}
+
+tab <- table(Sleep_AnalisisInteligente$Gender, Sleep_AnalisisInteligente$Sleep_Disorder)
+resultado <- chisq.test(tab)
+
+cat("El test de independencia Chi‑cuadrado arrojó un valor p =", 
+    format(resultado$p.value, scientific = TRUE, digits = 3), "\n")
+
+
+
+```
+
+ El valor de P << 0.05  permite rechazar la hipótesis nula y concluir que la distribución de los sitrastornos de sueño difiere significativamente según el género.”
+
+
+```{r echo=FALSE}
+
+chi <- chisq.test(tab)
+
+
+residuos_ajustados <- chi$stdres
+
+kable(residuos_ajustados, format="latex", booktabs=TRUE, digits=2,
+      caption="Residuos ajustados (estandarizados) del test Chi-cuadrado") %>%
+  kable_styling(latex_options="hold_position")
+
+
+```
+
+
+ El análisis de residuos ajustados indicó que Female se asocia principalmente con Sleep Apnea (residuo = +7.23), mientras que Male se asocia con la ausencia de trastorno (None, residuo = +5.53). En contraste, Female–None y Male–Sleep Apnea presentaron menos casos de lo esperado. No se observaron asociaciones significativas con Insomnia.”
+ 
+# Metodos de clasificacion.Clasficación  supervisada
+
+
+En esta tercera parte se aplicaron métodos de clasificación supervisada. Para evaluar la factibilidad de separar los grupos, se consideraron inicialmente las variables cuantitativas y se exploró si los vectores de medias diferían entre los grupos de *Sleep_Disorder* mediante un test de MANOVA.  
+La hipótesis nula $H₀$ plantea la igualdad de los vectores de medias multivariadas entre los grupos, mientras que la hipótesis alternativa $H₁$ sostiene que al menos un grupo difiere.  
+
+
+
+
+```{r echo=FALSE}
+dependientes <- Sleep_AnalisisInteligente[, c("Sleep_Duration", 
+                                              "Physical_Activity", 
+                                              "Heart_Rate", 
+                                              "Daily_Steps")]
+
+
+dependientes_scaled <- scale(dependientes)
+
+# MANOVA con variables escaladas
+modelo_manova <- manova(dependientes_scaled ~ Sleep_Disorder, 
+                        data = Sleep_AnalisisInteligente)
+
+p_wilks  <- summary(modelo_manova, test = "Wilks")$stats[1, "Pr(>F)"]
+p_pillai <- summary(modelo_manova, test = "Pillai")$stats[1, "Pr(>F)"]
+
+
+cat("Wilks p =", format(p_wilks, digits = 6), "\n")
+cat("Pillai p =", format(p_pillai, digits = 6), "\n")
+
+
+```
+Los resultados mostraron diferencias significativas (Wilks p = 3.78 × 10⁻⁴¹; Pillai p = 5.34 × 10⁻⁴¹), lo que permite rechazar $H₀$ y concluir que los vectores de medias difieren significativamente entre los grupos de *Sleep_Disorder*. Esta evidencia respalda la aplicación de técnicas de clasificación supervisada.
+
+
+**Chequeo de supuestos**
+**Normalidad  de vector de medias**
+
+```{r include=FALSE, warning=FALSE,fig.show='hide'}
+library(MVTests)
+
+library(psych)
+result_mardia <- mardia(Sleep_AnalisisInteligente[, c("Sleep_Duration","Physical_Activity","Heart_Rate","Daily_Steps")])
+print(result_mardia)
+
+```
+
+
+
+```{r echo=FALSE}
+
+p_skew  <- result_mardia$p.skew
+
+p_kurt  <- result_mardia$p.kurt
+
+cat("Mardia skewness p-value:", signif(p_skew, 3), "\n")
+
+cat("Mardia kurtosis p-value:", signif(p_kurt, 3), "\n")
+```
+
+
+
+**Test de Box para homocedasticidad de covarianzas **
+
+```{r echo=FALSE, warning=FALSE}
+library(biotools)
+
+
+testbox<-boxM(dependientes_scaled, Sleep_AnalisisInteligente$Sleep_Disorder)
+p_boxM <- testbox$p.value
+cat("Box's M test p-value:", p_boxM, "\n")
+
+```
+ 
+
+
+
+“La prueba de *Mardia* indicó valores altamente significativos tanto para la asimetría como para la curtosis, lo que evidencia que las variables cuantitativas *no cumplen el supuesto de normalidad multivariada*. Asimismo, el *test de Box* mostró que *tampoco se cumple la homogeneidad de las matrices de covarianza entre los grupos*. En consecuencia, aunque el MANOVA arrojó resultados significativos en los estadísticos de Wilks, Pillai, estos se interpretan únicamente de manera exploratoria y no como evidencia estadística concluyente.”
+
+## QDA robusto
+
+
+
+Dado que los supuestos de normalidad multivariante y homogeneidad de covarianzas no se cumplen, se descartó la aplicación de LDA y QDA clásicos. En su lugar, se empleó QDA robusto con estimación MCD, capaz de mitigar la influencia de outliers y violaciones de supuestos. Durante el modelado se presentaron problemas de singularidad en la matriz de covarianza, lo que llevó a una reducción progresiva de predictores quedándose únicamente con tres variables continuas (Age, Sleep_Duration, Heart_Rate. Inicialmente se utilizó una partición simple en entrenamiento y prueba; posteriormente, se migró a validación cruzada k-fold (k=5)
+.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(rrcov)
+library(caret)
+
+vars_num <- c("Age","Sleep_Duration","Heart_Rate")
+
+# Escalado
+data_scaled <- data.frame(
+  scale(Sleep_AnalisisInteligente[, vars_num]),
+  Sleep_Disorder = as.factor(Sleep_AnalisisInteligente$Sleep_Disorder)
+)
+data_scaled <- na.omit(data_scaled)
+data_scaled$Sleep_Disorder <- droplevels(data_scaled$Sleep_Disorder)
+
+
+set.seed(123)
+folds <- createFolds(data_scaled$Sleep_Disorder, k = 5)
+
+
+acc <- c()
+all_preds <- c()
+all_true  <- c()
+
+for(i in 1:5){
+  test_idx <- folds[[i]]
+  train_data <- data_scaled[-test_idx, ]
+  test_data  <- data_scaled[test_idx, ]
+  
+  # Modelo QDA robusto
+  qda_model <- QdaCov(Sleep_Disorder ~ ., data = train_data, method = "MCD")
+  
+  
+  pred <- predict(qda_model, as.matrix(test_data[, vars_num]))
+  pred_classes <- factor(pred@classification,
+                         levels = levels(test_data$Sleep_Disorder))
+  
+  # Accuracy por fold
+  acc[i] <- mean(pred_classes == test_data$Sleep_Disorder)
+  
+  
+  all_preds <- c(all_preds, as.character(pred_classes))
+  all_true  <- c(all_true, as.character(test_data$Sleep_Disorder))
+}
+
+
+cat("Accuracies por fold:", acc, "\n")
+cat("Accuracy promedio:", mean(acc), "\n")
+
+# Métricas globales sobre todas las predicciones
+cm_global <- confusionMatrix(factor(all_preds, levels=levels(data_scaled$Sleep_Disorder)),
+                             factor(all_true, levels=levels(data_scaled$Sleep_Disorder)))
+print(cm_global)
+```
+
+El modelo muestra un desempeño sólido según las métricas globales (Accuracy ≈ 0.79, Kappa ≈ 0.65), lo que indica buena capacidad de clasificación. La clase mejor identificada es None (sin trastorno), con alta sensibilidad y precisión, mientras que la clase más difícil de clasificar es Sleep Apnea, que aunque presenta buena sensibilidad, muestra menor precisión debido a confusiones frecuentes con la categoría None.
+
+“A continuación se presentan los resultados de dos técnicas de clasificación distintas: *Regresión logística multinomial* y *Random Forest*, en las cuales se emplearon tanto variables cualitativas como cuantitativas. El objetivo fue evaluar el desempeño comparativo de cada enfoque bajo métricas comunes (Accuracy, Kappa, sensibilidad, especificidad y precisión por clase).
+
+Cabe señalar que, tras haber mostrado previamente los resultados de un método robusto como QDA, en esta sección se opta por utilizar todas las variables del dataset para evitar pérdida de información, dado que QDA solo permite trabajar con variables cuantitativas. En contraste, los métodos aquí comparados —y en particular Random Forest— no presentan restricciones severas respecto a los supuestos de normalidad o homogeneidad, lo que permite incorporar la totalidad de las variables y obtener una evaluación más completa del desempeño clasificatorio.”
+
+## Regresión logística multinomial{#sec-Multinomial}
+ 
+
+“Previo al ajuste del modelo multinomial se verificó la presencia de multicolinealidad mediante el cálculo de VIF sobre los predictores numéricos. Se observaron valores muy elevados en presión sistólica y diastólica (>30), lo que indica redundancia entre ambas variables; por ello se decidió excluir una de ellas para mejorar la estabilidad del modelo. Asimismo, se identificaron dos predictores con valores cercanos al límite (Quality_Sleep ≈11 y Stress_Level ≈9), que se mantuvieron en el análisis por su relevancia clínica, documentando la posible colinealidad moderada.”
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(car)
+
+
+preds <- Sleep_AnalisisInteligente[, c("Age","Sleep_Duration","Quality_Sleep",
+                                       "Physical_Activity","Stress_Level","Heart_Rate",
+                                       "Daily_Steps","Systolic_BP","Diastolic_BP")]
+
+
+mod_aux <- lm(Age ~ ., data = preds)
+
+# VIF
+vif_vals <- vif(mod_aux)
+
+vif_tab <- data.frame(
+  Predictor = names(vif_vals),
+  VIF = round(vif_vals, 2),
+  row.names = NULL
+)
+
+
+kable(vif_tab, caption = "Factores de inflación de varianza (VIF)",
+      booktabs = TRUE, align = "l") %>%
+  kable_styling(latex_options = c("H"))
+```
+
+Además, se verificó el balance de clases en la variable respuesta (Insomnia = 77, None = 219, Sleep Apnea = 78), observándose una distribución adecuada para el entrenamiento del modelo sin necesidad de técnicas de balanceo
+
+```{r include=FALSE}
+table(Sleep_AnalisisInteligente$Sleep_Disorder) 
+```
+
+```{r echo=FALSE,results='hide',warning=FALSE}
+
+# --- Modelo multinomial  con numéricas + categóricas ---con estratrificación
+
+library(caret)
+library(nnet)
+set.seed(105)
+ctrl <- trainControl(method = "cv", number = 5, savePredictions = "final")
+Sleep_AnalisisInteligente$Sleep_Disorder <- relevel(Sleep_AnalisisInteligente$Sleep_Disorder, ref = "None")
+
+modelo_ext_cv <- train(Sleep_Disorder ~ Age + Sleep_Duration + Quality_Sleep +
+                         Physical_Activity + Stress_Level + Heart_Rate +
+                         Daily_Steps + Systolic_BP +
+                         Gender + Occupation + BMI_Category,
+                       data = Sleep_AnalisisInteligente,
+                       method = "multinom",
+                       trControl = ctrl)
+
+
+```
+Del modelo multinomial se obtienen coeficientes en log-odds que permiten calcular los odds ratios mediante la función exponencial. Estos odds ratios cuantifican el efecto de un aumento unitario en cada predictor sobre las odds de pertenecer a una clase frente a la referencia. Se pueden obtener del summary. A continuacion los extraigo y visualizo en tabla del **Anexo \@ref(anexo-oddsratio)**
+
+```{r include=FALSE}
+summary(modelo_ext_cv)
+
+
+
+```
+
+```{r include=FALSE}
+library(broom)
+library(dplyr)
+library(tidyr)
+
+# Extraer coeficientes y transformar a OR
+coef_table <- tidy(modelo_ext_cv$finalModel, conf.int = TRUE, exponentiate = TRUE) %>%
+  filter(term != "(Intercept)") %>%
+  mutate(y.level = case_when(
+    y.level == "Insomnia" ~ "Insomnia vs None",
+    y.level == "Sleep Apnea" ~ "Apnea vs None"
+  ))
+
+
+tabla_or <- coef_table %>%
+  dplyr::select(term, y.level, estimate) %>%
+  tidyr::pivot_wider(names_from = y.level, values_from = estimate) %>%
+  dplyr::mutate(across(where(is.numeric), ~ round(.x, 2)))
+
+
+tabla_or
+
+```
+De la tabla puede leerse que, para Insomnia, los principales factores protectores (OR < 1) fueron la duración y la calidad del sueño, mientras que la edad, la presión arterial sistólica elevada y el sexo masculino se identificaron como factores de riesgo (OR > 1). El estrés mostró un efecto protector aparente, pero este resultado debe interpretarse como un artefacto estadístico derivado de la colinealidad con la calidad del sueño y no como un hallazgo clínico real.
+
+En el caso de Apnea, los riesgos más fuertes se observaron en la obesidad, la frecuencia cardíaca y la mayor duración del sueño. La calidad del sueño presentó un efecto protector leve, mientras que la edad y el estrés se comportaron como variables prácticamente neutras.
+
+Debe interpretarse con cautela el resultado del sexo masculino, en contradicción con la menor frecuencia de insomnio observada en esta población, lo que puede explicarse por interacciones entre variables. Asimismo, el valor extremo en los odds de obesidad refleja la baja frecuencia de casos, generando estimaciones inestables que requieren una interpretación cuidadosa.
+
+\vspace{1cm}
+
+
+
+
+
+```{r echo=FALSE}
+preds <- modelo_ext_cv$pred
+preds$pred <- factor(preds$pred, levels = levels(Sleep_AnalisisInteligente$Sleep_Disorder))
+preds$obs  <- factor(preds$obs,  levels = levels(Sleep_AnalisisInteligente$Sleep_Disorder))
+
+confusionMatrix(preds$pred, preds$obs)
+
+```
+
+
+
+
+El modelo multinomial logra un rendimiento general robusto (Accuracy ≈ 0.90, Kappa ≈ 0.84) y un desempeño equilibrado entre las tres clases. La clasificación de Sleep Apnea alcanza niveles de sensibilidad (≈ 0.88) y precisión (≈ 0.95) comparables a las otras categorías, lo que refuerza la utilidad del modelo para un diagnóstico más confiable en contextos de análisis de trastornos del sueño.Cabe destacar que las métricas se evaluaron mediante validación cruzada estratificada (CV) con lo que asegura que cada fold mantuvo la proporción de clases y aporta mayor robustez a la estimación del rendimiento.
+
+## Random Forest{#sec-Forest}
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(caret)
+library(randomForest)
+
+
+ctrl <- trainControl(method = "cv",
+                     number = 5,
+                     savePredictions = "final")
+
+
+set.seed(124)  
+modelo_rf_cv <- train(Sleep_Disorder ~ Age + Sleep_Duration + Quality_Sleep +
+                        Physical_Activity + Stress_Level + Heart_Rate +
+                        Daily_Steps + Systolic_BP + Diastolic_BP +
+                        Gender + Occupation + BMI_Category,
+                      data = Sleep_AnalisisInteligente,
+                      method = "rf",
+                      trControl = ctrl,
+                      importance = TRUE)
+
+# Accuracy y Kappa promedio
+cat("Accuracy promedio:", mean(modelo_rf_cv$resample$Accuracy), "\n")
+cat("Kappa promedio:", mean(modelo_rf_cv$resample$Kappa), "\n")
+
+
+# Matriz de confusión global
+preds_rf <- modelo_rf_cv$pred
+preds_rf$pred <- factor(preds_rf$pred, levels = levels(Sleep_AnalisisInteligente$Sleep_Disorder))
+preds_rf$obs  <- factor(preds_rf$obs,  levels = levels(Sleep_AnalisisInteligente$Sleep_Disorder))
+
+confusionMatrix(preds_rf$pred, preds_rf$obs)
+
+
+
+```
+El modelo de Random Forest alcanzó un Accuracy de 0.91 y un Kappa de 0.85, confirmando un desempeño robusto en la clasificación de los trastornos del sueño
+
+
+```{r echo=FALSE}
+# Importancia de variables 
+imp <- varImp(modelo_rf_cv)
+
+
+
+plot(varImp(modelo_rf_cv), top = 10)
+
+```
+ El análisis de importancia de variables mostró que Diastolic_BP y Systolic_BP fueron los predictores más determinantes contribuyendo de manera consistente a la clasificación de Insomnia, None y Sleep Apnea. (Ver tabla completa de importancia de variables por trastorno en **anexo \@ref(anexo-Vimp)**). El modelo logra un equilibrio notable entre sensibilidad y especificidad en las tres clases, con especial robustez en la identificación de la categoría None
+
+En síntesis, ambos métodos logran un rendimiento robusto y comparable en métricas generales, aunque difieren en la interpretación: el Multinomial ofrece mayor transparencia en la estimación de probabilidades, mientras que el Random Forest aporta un análisis más rico de la importancia de las variables y su contribución diferenciada por clase. Cabe señalar que en ambos casos las métricas se obtuvieron mediante validación cruzada, y que el Random Forest alcanzó valores ligeramente superiores en Accuracy y Balanced Accuracy, mostrando mayor equilibrio en la clasificación de las tres categorías.”
+
+# Métodos de clasificación.Clasificación no supervisada
+
+## Comparación de métodos de Clustering con clValid”
+
+En la etapa exploratoria de clasificación decidí apoyarme en una librería especializada (clValid) que permite comparar distintos enfoques y obtener una orientación objetiva sobre qué método resulta más adecuado para el dataset. En particular, probé un algoritmo clásico no jerárquico (K-means), un método jerárquico (Ward) y un enfoque robusto recomendado en contextos biomédicos (PAM, Partitioning Around Medoids)
+
+```{r echo=FALSE, warning=FALSE,message=FALSE}
+
+library(clValid)
+library(factoextra)
+library(cluster)
+
+# --- Selección de variables numéricas ---
+Sleep_num <- Sleep_AnalisisInteligente %>%
+  dplyr::select(Age, Sleep_Duration, Quality_Sleep, Physical_Activity,
+                Stress_Level, Heart_Rate, Daily_Steps, Systolic_BP, Diastolic_BP)
+
+# --- Escalado ---
+Sleep_scaled <- scale(Sleep_num)
+# Métodos a probar
+cl_methods <- c("hierarchical","kmeans","pam")
+
+
+clv <- clValid(Sleep_scaled, 
+               nClust = 2:6, 
+               clMethods = cl_methods, 
+               validation = "internal")
+
+# Resumen de resultados
+summary(clv)
+
+
+```
+El análisis con *clValid* mostró que dos métricas internas (Connectivity y Silhouette) favorecieron el método PAM, con soluciones de 2 y 5 clusters respectivamente, mientras que Dunn sugirió el método jerárquico con 6 clusters.  
+Dado que la métrica de Connectivity indicó mayor compacidad en la solución de 2 clusters y se buscaba contrastar con la clasificación clínica binaria (Normal vs. Patológico del sueño), se decidió aplicar PAM con 2 clusters.Esta decisión responde también a una simplificación metodológica, en la medida en que los perfiles de insomnio y apnea suelen presentar solapamientos clínicos y resultan más difíciles de separar de manera robusta.”
+
+
+
+
+
+## Clasificación no supervisada con PAM{#sec-PCA}
+
+
+
+
+```{r echo=FALSE}
+library(cluster)
+
+pam2 <- pam(Sleep_scaled, k = 2)
+
+
+table(pam2$clustering)
+
+
+pam2$medoids
+
+
+
+
+
+```
+```{r echo=FALSE}
+# Visualizacion
+library(factoextra)
+fviz_cluster(pam2, data = Sleep_scaled)
+
+```
+
+
+
+
+La separación obtenida con PAM en 2 clusters muestra perfiles contrastantes: el primer grupo presenta promedios estandarizados de menor duración y calidad de sueño, menor actividad física, mayor nivel de estrés y frecuencia cardíaca más elevada, mientras que el segundo grupo refleja valores opuestos (mayor duración y calidad de sueño, más actividad física, menor estrés y presión arterial más baja).
+
+
+```{r echo=FALSE}
+# --- Validación externa ---
+compa <- table(pam2$clustering, Sleep_AnalisisInteligente$Sleep_Disorder)
+
+
+
+kable(compa,
+      caption = "Validacion externa-clusters PAM vs etiquetas clínicas",
+      booktabs = TRUE,
+      align = "lcc") %>%
+  kable_styling(latex_options = "H")
+
+```
+
+La validación externa frente a las etiquetas clínicas indica cierto solapamiento, pero en conjunto el segundo cluster concentra la mayoría de los casos sin trastorno, lo que sugiere correspondencia con la población normal, mientras que el primer cluster agrupa predominantemente individuos con insomnio o apnea.
+
+En los gráficos de clusterización de variables se observa cómo cada variable contribuye diferencialmente a la formación de los clusters, El barplot por cluster muestra la contribución específica dentro de cada agrupamiento, mientras que el gráfico único presenta todas las variables en conjunto para evidenciar el perfil característico de cada cluster Finalmente, el análisis con FeatureImpCluster  organiza las variables en orden decreciente de relevancia, destacando aquellas con mayor capacidad de separación entre individuos y confirmando su rol central en la estructura.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# --- Clustering con PAM  ---
+library(cluster)
+library(flexclust)
+library(FeatureImpCluster)
+
+set.seed(123)
+pam_res <- pam(Sleep_scaled, k = 2)   
+
+
+cl_kcca <- as.kcca(pam_res, Sleep_scaled)
+
+# --- ---
+# Barplot por cluster
+barplot(cl_kcca, bycluster = TRUE, main= "Contribucion por cluster")
+
+# Barplot general 
+barplot(cl_kcca, bycluster = FALSE, main= "Contribucion general")
+
+# --- Importancia de las variables en la formación de clusters ---
+importancia <- FeatureImpCluster(cl_kcca, as.data.table(Sleep_scaled))
+plot(importancia, main="Importancia de variables")
+
+
+
+```
+
+
+
+
+```{r include=FALSE}
+library(FactoMineR)
+library(factoextra)
+
+# --- PCA sobre datos escalados ---
+res.pca <- PCA(Sleep_scaled, graph = FALSE)
+
+# --- Contribución de variables a Dim1 ---
+fviz_contrib(res.pca, choice = "var", axes = 1, top = 10) +
+  ggtitle("Contribución de variables a Dim1")
+
+# --- Contribución de variables a Dim2 ---
+fviz_contrib(res.pca, choice = "var", axes = 2, top = 10) +
+  ggtitle("Contribución de variables a Dim2")
+```
+
+
+```{r echo=FALSE}
+library(FactoMineR)
+library(factoextra)
+
+# --- PCA sobre datos escalados ---
+res.pca <- PCA(Sleep_scaled, graph = FALSE)
+
+# --- Visualización combinada: individuos + variables ---
+fviz_pca_biplot(res.pca,
+                geom.ind = "point", 
+                col.ind = factor(pam_res$clustering),   
+                palette = c("#E7B800", "#2E9FDF"),      
+                addEllipses = TRUE,                     
+                label = "var",                          # var como vectores
+                col.var = "black",                      
+                repel = TRUE)                           
+
+```
+En el biplot se distinguen los individuos coloreados según los clusters de PAM, lo que permite visualizar su separación en el plano de las dos primeras dimensiones.  
+Las flechas representan las variables originales, indicando la dirección y fuerza de su contribución: por ejemplo, *Stress_Level* y *Heart_Rate* se asocian con el Cluster 1, mientras que *Sleep_Duration* y *Physical_Activity* caracterizan al Cluster 2.
+
+El análisis de componentes principales permitió visualizar que las variables con mayor contribución a Dim1 y Dim2 son las que explican la separación observada entre los clusters.Ver gráficos **anexo \@ref(anexo-PCA)**. De este modo, el plano factorial no solo refleja la estructura de los datos, sino también las dimensiones que discriminan mejor entre la población normal y la patológica.”
+
+Si bien en este trabajo se aplicó PAM con 2 clusters para contrastar directamente con la clasificación clínica binaria (Normal vs. Patológico), en una segunda instancia podría evaluarse el mismo método con 5 clusters, con el objetivo de descubrir o caracterizar posibles sub‑perfiles de sueño. 
+
+
+
+# Anexo Tablas y gráficos complementarios
+
+## Estructura del dataset {#sec:EstructuraStr}
+
+Volver a la **sección \@ref(sec-principal)**
+
+ 
+
+
+```{r echo=FALSE}
+
+
+
+str(Sleep_AnalisisInteligente)
+
+
+```
+
+## Contribución de Variables a dimension 1 y 2 en MCA con todas las variables cualitativas  y eigen values.{#anexo-contrib}
+
+Volver a la **sección \@ref(sec-MCA)**
+
+```{r echo=FALSE}
+# Gráfico Dim1
+p1 <- fviz_contrib(mca_result1, choice = "var", axes = 1, top = 10) +
+  ggtitle("Contribucion a Dimension 1")
+
+# Gráfico Dim2
+p2 <- fviz_contrib(mca_result1, choice = "var", axes = 2, top = 10) +
+  ggtitle("Contribucion a Dimension 2")
+
+# Eigenvalues
+eigen <- get_eigenvalue(mca_result1)
+p3 <- fviz_eig(mca_result1) + ggtitle("Eigenvalues y % de variabilidad")
+
+# Mostrar los tres juntos
+gridExtra::grid.arrange(p1, p2, p3, ncol=2)
+
+```
+\newpage
+
+
+## Tablas de frecuencias de ocupaciones y de BMI.{#anexo-tablas}
+
+Volver a **sección \@ref(sec-MCAagrupado)**
+
+
+```{r echo=FALSE, results='asis'}
+
+
+tab_occ <- table(Sleep_AnalisisInteligente$Occupation)
+
+kable(tab_occ, 
+      format = "latex", 
+      booktabs = TRUE, 
+      caption = "Frecuencia de ocupaciones") %>%
+  kable_styling(latex_options = "H")
+
+
+
+```
+
+```{r echo=FALSE, results='asis'}
+
+tab_bmi <- table(Sleep_AnalisisInteligente$BMI_Category)
+
+kable(tab_bmi, 
+      format = "latex", 
+      booktabs = TRUE, 
+      caption = "Frecuencia de categorías de BMI") %>%
+  kable_styling(latex_options = "H")
+
+```
+\newpage
+
+
+
+
+
+
+## Contribución de Variables a dimension 1 y 2 en MCA con variables agrupadas  y eigen values.{#anexo-contrib2}
+
+Volver a **sección \@ref(sec-MCAagrupado)**
+
+
+```{r echo=FALSE}
+
+# Gráfico Dim1
+p1 <- fviz_contrib(mca_result2, choice = "var", axes = 1, top = 10) +
+  ggtitle("Contribucion a Dimension 1")
+
+# Gráfico Dim2
+p2 <- fviz_contrib(mca_result2, choice = "var", axes = 2, top = 10) +
+  ggtitle("Contribucion a Dimension 2")
+
+# Eigenvalues
+eigen <- get_eigenvalue(mca_result2)
+p3 <- fviz_eig(mca_result2) + ggtitle("Eigenvalues y % de variabilidad")
+
+
+gridExtra::grid.arrange(p1, p2, p3, ncol=2)
+
+```
+\newpage
+
+
+
+
+
+
+## Tabla de Odds Ratio.{#anexo-oddsratio}
+
+Volver a **sección \@ref(sec-Multinomial)**
+
+```{r echo=FALSE}
+library(broom)
+library(dplyr)
+library(tidyr)
+
+# Extraer coeficientes y transformar a OR
+coef_table <- tidy(modelo_ext_cv$finalModel, conf.int = TRUE, exponentiate = TRUE) %>%
+  filter(term != "(Intercept)") %>%
+  mutate(y.level = case_when(
+    y.level == "Insomnia" ~ "Insomnia vs None",
+    y.level == "Sleep Apnea" ~ "Apnea vs None"
+  ))
+
+
+tabla_or <- coef_table %>%
+  dplyr::select(term, y.level, estimate) %>%
+  tidyr::pivot_wider(names_from = y.level, values_from = estimate) %>%
+  dplyr::mutate(across(where(is.numeric), ~ round(.x, 2)))
+
+
+kable(tabla_or,
+      booktabs = TRUE,
+      align = "l") %>%   # alineación a la izquierda
+  kable_styling(latex_options = c("H"))
+
+```
+\newpage
+
+## Tabla de importancia de variables en Random Forest.{#anexo-Vimp}
+
+Volver a  **sección \@ref(sec-Forest)**
+
+```{r echo=FALSE}
+# Importancia de variables 
+imp <- varImp(modelo_rf_cv)
+
+
+kable(imp$importance,
+      booktabs = TRUE,
+      align = "l") %>%
+  kable_styling(latex_options = "H")
+
+```
+
+
+
+
+
+
+\newpage
+
+
+## Aporte de variables a la separación de clusters (PCA).{#anexo-PCA}
+
+Volver a **sección \@ref(sec-PCA)**
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(gridExtra)
+library(FactoMineR)
+library(factoextra)
+
+
+# --- PCA sobre datos escalados ---
+res.pca <- PCA(Sleep_scaled, graph = FALSE)
+
+# --- Contribución de variables a Dim1 ---
+p1 <- fviz_contrib(res.pca, choice = "var", axes = 1, top = 10) +
+  ggtitle("Contribución de variables a Dim1")
+
+# --- Contribución de variables a Dim2 ---
+p2 <- fviz_contrib(res.pca, choice = "var", axes = 2, top = 10) +
+  ggtitle("Contribución de variables a Dim2")
+
+p3 <- fviz_screeplot(res.pca, addlabels = TRUE, ylim = c(0, 60)) +
+  ggtitle("Scree plot: % de variabilidad por dimensión")
+
+
+
+grid.arrange(p1, p2,p3, ncol = 2)
+
+```
+
+
+
+
+
+
+
+
+
